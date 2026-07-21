@@ -1,0 +1,10 @@
+# Storage Demo Requirements
+# Core dependencies (minimal for P0)
+
+# No external dependencies needed for P0
+# Python stdlib provides: sqlite3, hashlib, os, pathlib, json
+
+# Future dependencies (uncomment when needed):
+# psycopg2-binary>=2.9.0  # PostgreSQL driver
+# pytest>=7.0.0           # Testing framework
+# pytest-cov>=4.0.0       # Coverage reporting
