@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 
-from .database import Database
+from .db import Database
 from .blob_storage import BlobStorage, get_blob_path
 
 

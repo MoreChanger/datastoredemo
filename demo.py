@@ -21,18 +21,30 @@
     python demo.py job list                # 列出快照
     python demo.py cleanup-report          # 查看清理报告
     python demo.py cleanup [--dry-run]     # 清理零引用 blob
+    
+环境变量：
+    DB_TYPE=sqlite|postgresql              # 数据库类型
+    POSTGRES_HOST=localhost                # PostgreSQL 主机
+    POSTGRES_PORT=5432                     # PostgreSQL 端口
+    POSTGRES_USER=loongclouds              # PostgreSQL 用户
+    POSTGRES_PASSWORD=...                  # PostgreSQL 密码
+    POSTGRES_DATABASE=storage              # PostgreSQL 数据库
 """
 
 import sys
 import os
 import argparse
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.storage import (
-    BlobStorage, Database, FileManager, HashCache, compute_sha256,
+    BlobStorage, Database, DatabaseConfig, DatabaseType, FileManager, HashCache, compute_sha256,
     ManifestManager, StorageCleaner
 )
 
@@ -48,10 +60,16 @@ DEFAULT_CACHE_PATH = Path(__file__).parent / "data" / "hash_cache.json"
 DEFAULT_USER = "demo_user"
 
 
+def get_database() -> Database:
+    """获取数据库实例（支持 SQLite 和 PostgreSQL）"""
+    config = DatabaseConfig.from_env()
+    return Database(config)
+
+
 def get_file_manager() -> FileManager:
     """获取文件管理器实例（带缓存）"""
     blob_storage = BlobStorage(DEFAULT_STORAGE_PATH)
-    db = Database(DEFAULT_DB_PATH)
+    db = get_database()
     hash_cache = HashCache(DEFAULT_CACHE_PATH)
     fm = FileManager(db, blob_storage, DEFAULT_USERS_PATH, hash_cache)
     return fm
@@ -60,7 +78,7 @@ def get_file_manager() -> FileManager:
 def get_manifest_manager() -> ManifestManager:
     """获取快照管理器实例"""
     blob_storage = BlobStorage(DEFAULT_STORAGE_PATH)
-    db = Database(DEFAULT_DB_PATH)
+    db = get_database()
     hash_cache = HashCache(DEFAULT_CACHE_PATH)
     fm = FileManager(db, blob_storage, DEFAULT_USERS_PATH, hash_cache)
     mm = ManifestManager(db, fm, DEFAULT_JOBS_PATH, DEFAULT_OUTPUTS_PATH)
@@ -70,7 +88,7 @@ def get_manifest_manager() -> ManifestManager:
 def get_cleaner() -> StorageCleaner:
     """获取清理器实例"""
     blob_storage = BlobStorage(DEFAULT_STORAGE_PATH)
-    db = Database(DEFAULT_DB_PATH)
+    db = get_database()
     cleaner = StorageCleaner(db, blob_storage, DEFAULT_TRASH_PATH)
     return cleaner
 
@@ -78,7 +96,7 @@ def get_cleaner() -> StorageCleaner:
 def cmd_init(args):
     """初始化存储"""
     print("=" * 60)
-    print("初始化存储系统")
+    print("Initializing Storage System")
     print("=" * 60)
     
     # 创建目录
@@ -92,7 +110,8 @@ def cmd_init(args):
     blob_storage = BlobStorage(DEFAULT_STORAGE_PATH)
     blob_storage.init_storage()
     
-    db = Database(DEFAULT_DB_PATH)
+    db = get_database()
+    db.connect()
     db.init_schema()
     
     # 初始化缓存

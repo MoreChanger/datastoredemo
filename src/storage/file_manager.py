@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from .blob_storage import BlobStorage, compute_sha256, get_blob_path
-from .database import Database
+from .db import Database
 from .hash_cache import HashCache
 
 
@@ -216,36 +216,34 @@ class FileManager:
         blob_path, blob_created = self.blob_storage.store(local_path, file_hash)
         deduplicated = not blob_created  # 不是新创建 = 去重
         
-        # 4. 数据库事务
-        with self.db.transaction() as conn:
-            # 创建或获取 files 记录
-            conn.execute(
-                """INSERT INTO files (user_name, path) VALUES (?, ?)
-                   ON CONFLICT(user_name, path) DO NOTHING""",
-                (user_name, server_path)
+        # 4. 数据库事务（带并发竞态防护）
+        # 使用 lock_row 提供原子性和隔离性（PostgreSQL: SELECT FOR UPDATE, SQLite: BEGIN IMMEDIATE）
+        with self.db.lock_row("files", "user_name = ? AND path = ?", (user_name, server_path)):
+            # 使用 UPSERT 创建或获取 files 记录（防止并发竞态）
+            file_id = self.db.upsert(
+                "files",
+                {
+                    "user_name": user_name,
+                    "path": server_path,
+                    "status": "active",
+                },
+                conflict_columns=["user_name", "path"]
             )
             
-            # 查询 file_id
-            row = conn.execute(
-                "SELECT id FROM files WHERE user_name = ? AND path = ?",
-                (user_name, server_path)
-            ).fetchone()
-            file_id = row["id"]
-            
             # 查询最新版本
-            latest_row = conn.execute(
+            latest_row = self.db.fetchone(
                 """SELECT version_num, hash FROM file_versions
                    WHERE file_id = ?
                    ORDER BY version_num DESC LIMIT 1""",
                 (file_id,)
-            ).fetchone()
+            )
             
             # 判断是否为新版本
             if latest_row is None:
                 # 首次上传，插入版本记录
                 version_num = 1
                 created = True
-                conn.execute(
+                self.db.execute(
                     """INSERT INTO file_versions
                        (file_id, version_num, hash, size, uploaded_by)
                        VALUES (?, ?, ?, ?, ?)""",
@@ -259,7 +257,7 @@ class FileManager:
                 # 内容不同，新版本
                 version_num = latest_row["version_num"] + 1
                 created = True
-                conn.execute(
+                self.db.execute(
                     """INSERT INTO file_versions
                        (file_id, version_num, hash, size, uploaded_by)
                        VALUES (?, ?, ?, ?, ?)""",

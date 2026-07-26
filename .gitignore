@@ -56,6 +56,10 @@ data/hash_cache.json
 # Codegraph (local index)
 .codegraph/
 
+# Environment
+.env
+.env.local
+
 # OS files
 .DS_Store
 Thumbs.db

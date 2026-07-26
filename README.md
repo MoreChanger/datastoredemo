@@ -1,6 +1,6 @@
-# LoongClouds 存储系统 Demo
+# LoongClouds 存储系统
 
-内容寻址存储（Content-Addressable Storage）系统演示项目，用于验证渲染农场存储架构的可行性。
+生产级内容寻址存储（Content-Addressable Storage）系统，用于渲染农场存储架构。
 
 ## 功能特性
 
@@ -19,6 +19,11 @@
 - **引用计数** - 自动追踪 blob 引用
 - **回收站机制** - 安全清理零引用 blob
 
+### P3 - 生产级架构
+- **PostgreSQL 支持** - 连接池、WAL、行级锁
+- **并发安全** - UPSERT、SELECT FOR UPDATE、事务隔离
+- **SQLite 兼容** - 开发测试友好，无缝切换
+
 ## 项目结构
 
 ```
@@ -26,10 +31,14 @@ datastoredemo/
 ├── src/storage/              # 核心存储模块
 │   ├── blob_storage.py       # SHA-256 blob 存储
 │   ├── file_manager.py       # 文件上传与版本管理
-│   ├── database.py           # SQLite 元数据存储
+│   ├── database.py           # SQLite 元数据存储（向后兼容）
+│   ├── db/                   # 数据库抽象层
+│   │   └── __init__.py       # PostgreSQL + SQLite 统一接口
 │   ├── hash_cache.py         # 本地哈希缓存
 │   ├── manifest_manager.py   # 任务快照管理
 │   └── cleaner.py            # 引用计数清理
+├── scripts/                  # 数据库脚本
+│   └── init.sql              # PostgreSQL Schema
 ├── tests/                    # 单元测试 (64 tests)
 ├── docs/                     # 设计文档
 │   ├── 04-storage-system-design.md
@@ -41,6 +50,7 @@ datastoredemo/
 │   ├── outputs/              # 渲染输出
 │   ├── trash/                # 回收站
 │   └── storage.db            # SQLite 数据库
+├── docker-compose.yml        # PostgreSQL 容器配置
 ├── demo.py                   # Demo CLI
 └── requirements.txt
 ```

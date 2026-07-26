@@ -16,7 +16,7 @@ from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
 
-from .database import Database
+from .db import Database
 from .file_manager import FileManager, normalize_windows_path
 from .blob_storage import get_blob_path
 
